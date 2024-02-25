@@ -8,11 +8,11 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-south-1"
+  region = var.region
 }
 
 resource "aws_vpc" "test_vpc" {
-  cidr_block       = "10.1.0.0/16"
+  cidr_block       = var.vpc_cidr
   instance_tenancy = "default"
 
   tags = {
@@ -22,18 +22,19 @@ resource "aws_vpc" "test_vpc" {
 
 resource "aws_subnet" "test_pub_sub" {
   vpc_id     = aws_vpc.test_vpc.id
-  cidr_block = "10.1.0.0/26"
-  availability_zone = "ap-south-1a"  
+  cidr_block = var.pub_sub_cidr
+  availability_zone = var.pub_sub_az
 
 
   tags = {
     Name = "jenkins_pub_sub"
   }
 }
+
 resource "aws_subnet" "test_pri_sub" {
   vpc_id     = aws_vpc.test_vpc.id
-  cidr_block = "10.1.0.64/26"
-  availability_zone = "ap-south-1a" 
+  cidr_block = var.pri_sub_cidr
+  availability_zone = var.pri_sub_az 
 
   tags = {
     Name = "jenkins_pri_sub"
@@ -61,7 +62,7 @@ resource "aws_route_table" "test_pub_rt" {
   }
 }
 
-resource "aws_route_table_association" "association" {
+resource "aws_route_table_association" "pub-association" {
   subnet_id      = aws_subnet.test_pub_sub.id
   route_table_id = aws_route_table.test_pub_rt.id
 }
@@ -73,6 +74,12 @@ resource "aws_route_table" "test_pri_rt" {
     Name = "jenkins_pri_sub"
   } 
 } 
+
+resource "aws_route_table_association" "pri-association" {
+  subnet_id      = aws_subnet.test_pri_sub.id
+  route_table_id = aws_route_table.test_pri_rt.id
+}
+
 
 resource "aws_security_group" "test_sg" {
   name        = "jenkins_sg"
@@ -93,19 +100,20 @@ resource "aws_vpc_security_group_ingress_rule" "test_ipv4" {
 }
 
 resource "aws_instance" "test_pub_instance" {
-  ami           = "ami-03f4878755434977f"
-  instance_type = "t2.micro"
-  key_name = "sanket-mumbai"
+  ami           = "${var.instance_ami_id[var.region]}"
+  instance_type = var.instance_type
+  key_name = var.instance_key_pair
   subnet_id = aws_subnet.test_pub_sub.id
+  associate_public_ip_address = true
   tags = {
     Name = "jenkins_pub_instance"
   }
 }
 
 resource "aws_instance" "test_pri_instance" {
-  ami           = "ami-03f4878755434977f"
-  instance_type = "t2.micro"
-  key_name = "sanket-mumbai"
+  ami           = "${var.instance_ami_id[var.region]}"
+  instance_type = var.instance_type
+  key_name = var.instance_key_pair
   subnet_id = aws_subnet.test_pri_sub.id
 
   tags = {
